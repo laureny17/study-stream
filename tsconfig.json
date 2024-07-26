@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".", // added this to make firestoreUtils work...
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
