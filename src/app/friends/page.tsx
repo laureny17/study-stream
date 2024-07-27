@@ -1,5 +1,3 @@
-// src/app/friends/page.tsx
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -27,29 +25,34 @@ const FriendsPage = () => {
   const [newRequestEmail, setNewRequestEmail] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
+  // Function to fetch and set user data
+  const fetchUserData = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (user) {
+      const userRef = doc(db, "users", user.email!);
       try {
-        const auth = getAuth();
-        const user = auth.currentUser;
+        const userDoc = await getDoc(userRef);
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log("Fetched user data:", userData); // Debugging line
 
-        if (user) {
-          const userRef = doc(db, "users", user.email!);
-          const userDoc = await getDoc(userRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setFriends(userData.friends || []);
-            setReceivedRequests(userData.receivedRequests || []);
-            setSentRequests(userData.sentRequests || []);
-          }
+          setFriends(userData.friends || []);
+          setReceivedRequests(userData.receivedRequests || []);
+          setSentRequests(userData.sentRequests || []);
+        } else {
+          console.warn("No user document found");
         }
       } catch (err) {
         setError("Failed to load user data.");
         console.error(err);
       }
-    };
+    }
+  };
 
+  // Fetch user data on component mount
+  useEffect(() => {
     fetchUserData();
   }, []);
 
@@ -73,8 +76,6 @@ const FriendsPage = () => {
 
       if (recipientData && senderData) {
         // 1. Update recipient's document
-        // - Add the sender to the recipient's friends list
-        // - Remove the sender from the recipient's receivedRequests list
         await updateDoc(recipientRef, {
           friends: arrayUnion({
             name: senderData.name,
@@ -87,8 +88,6 @@ const FriendsPage = () => {
         });
 
         // 2. Update sender's document
-        // - Add the recipient to the sender's friends list
-        // - Remove the recipient from the sender's sentRequests list
         await updateDoc(senderRef, {
           friends: arrayUnion({
             name: recipientData.name,
@@ -100,23 +99,8 @@ const FriendsPage = () => {
           }),
         });
 
-        // 3. Update local state for recipient
-        // - Remove the accepted request from the receivedRequests list in the UI
-        setReceivedRequests((prev) =>
-          prev.filter((request) => request.email !== requestEmail)
-        );
-
-        // 4. Update local state for sender
-        // - Remove the accepted request from the sentRequests list in the UI
-        setSentRequests((prev) =>
-          prev.filter((request) => request.email !== requestEmail)
-        );
-
-        // 5. Add the sender to the recipient’s friends list in local state
-        setFriends((prev) => [
-          ...prev,
-          { name: senderData.name, email: senderData.email },
-        ]);
+        // Re-fetch user data to reflect the latest changes
+        fetchUserData();
       }
     } catch (err) {
       console.error("Failed to accept friend request.", err);
@@ -143,7 +127,46 @@ const FriendsPage = () => {
       const recipientData = recipientDoc.data();
       const recipientName = recipientData.name || "Unknown";
 
-      // Update the sender's sent requests and recipient's received requests
+      // Get sender data
+      const senderDoc = await getDoc(senderRef);
+      const senderData = senderDoc.data();
+
+      if (!senderData) {
+        setError("Error fetching sender data.");
+        return;
+      }
+
+      // Check if recipient is already a friend
+      if (
+        recipientData.friends.some(
+          (friend: FriendRequest) => friend.email === user.email
+        )
+      ) {
+        setError("Recipient is already a friend.");
+        return;
+      }
+
+      // Check if a friend request has already been sent
+      if (
+        senderData.sentRequests.some(
+          (request: FriendRequest) => request.email === newRequestEmail
+        )
+      ) {
+        setError("Friend request already sent.");
+        return;
+      }
+
+      // Check if the recipient has already received a friend request
+      if (
+        recipientData.receivedRequests.some(
+          (request: FriendRequest) => request.email === user.email
+        )
+      ) {
+        setError("Friend request already received.");
+        return;
+      }
+
+      // Proceed with sending the friend request
       await updateDoc(senderRef, {
         sentRequests: arrayUnion({
           name: recipientName,
@@ -157,11 +180,10 @@ const FriendsPage = () => {
         }),
       });
 
-      // Update local state
-      setSentRequests((prev) => [
-        ...prev,
-        { name: recipientName, email: newRequestEmail },
-      ]);
+      // Re-fetch user data to reflect the latest changes
+      fetchUserData();
+
+      // Clear input field
       setNewRequestEmail("");
     } catch (err) {
       setError("Failed to send friend request.");
