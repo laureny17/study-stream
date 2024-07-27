@@ -1,46 +1,30 @@
-// src/components/FriendRequests.tsx
-"use client";
+// src/app/friends/receivedRequests.tsx (or wherever you display received requests)
 
-import { useEffect, useState } from "react";
-import { db } from "@/firebase"; // Ensure correct path
-import { collection, query, where, onSnapshot } from "firebase/firestore";
-import { useAuth } from "@/hooks/useAuth";
+import { useState } from "react";
+import { acceptFriendRequest } from ".././friendUtils";
 
 const FriendRequests = () => {
-  const [requests, setRequests] = useState<any[]>([]);
-  const { user } = useAuth();
-  const userEmail = user.email || "";
+  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const q = query(collection(db, "friends"), where("email", "==", userEmail));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const requestsList: any[] = [];
-      querySnapshot.forEach((doc) => {
-        requestsList.push(doc.data());
-      });
-      setRequests(requestsList);
-    });
-
-    return () => unsubscribe();
-  }, [userEmail]);
+  const handleAcceptRequest = async () => {
+    if (selectedEmail) {
+      try {
+        await acceptFriendRequest(selectedEmail);
+        // Handle successful acceptance (e.g., show a success message or update UI)
+      } catch (err) {
+        setError("Failed to accept friend request.");
+        console.error(err);
+      }
+    }
+  };
 
   return (
     <div>
-      <h2>Friend Requests</h2>
-      {requests.length === 0 ? (
-        <p>No friend requests</p>
-      ) : (
-        <ul>
-          {requests.map((request, index) => (
-            <li key={index}>
-              <p>
-                From: {request.senderName} ({request.senderEmail})
-              </p>
-              <p>Sent at: {request.timestamp.toDate().toLocaleString()}</p>
-            </li>
-          ))}
-        </ul>
-      )}
+      <h1>Received Friend Requests</h1>
+      {/* Render list of received requests here */}
+      <button onClick={handleAcceptRequest}>Accept Request</button>
+      {error && <p>{error}</p>}
     </div>
   );
 };

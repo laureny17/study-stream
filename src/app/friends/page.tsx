@@ -1,116 +1,217 @@
+// src/app/friends/page.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";
-import { db } from "@/firebase"; // Ensure correct path
+import { getAuth } from "firebase/auth";
 import {
-  collection,
   doc,
   getDoc,
-  setDoc,
-  deleteDoc,
-  onSnapshot,
-  query,
-  where,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
-import { useAuth } from "@/hooks/useAuth";
+import { db } from "@/firebaseConfig"; // Import the Firestore instance
+
+interface FriendRequest {
+  name: string;
+  email: string;
+}
 
 const FriendsPage = () => {
-  const { user } = useAuth(); // Use custom hook to get authenticated user
-  const [friends, setFriends] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [friends, setFriends] = useState<Array<FriendRequest>>([]);
+  const [receivedRequests, setReceivedRequests] = useState<
+    Array<FriendRequest>
+  >([]);
+  const [sentRequests, setSentRequests] = useState<Array<FriendRequest>>([]);
+  const [newRequestEmail, setNewRequestEmail] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      console.log("Fetching data for user: ", user.email);
-
-      // Set up real-time listener for friends
-      const friendsQuery = query(
-        collection(db, "friends"),
-        where("email", "==", user.email),
-        where("status", "==", "accepted")
-      );
-      const unsubscribeFriends = onSnapshot(friendsQuery, (snapshot) => {
-        const friendsList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        console.log("Friends list: ", friendsList);
-        setFriends(friendsList);
-      });
-
-      // Set up real-time listener for friend requests
-      const requestsQuery = query(
-        collection(db, "friends"),
-        where("email", "==", user.email),
-        where("status", "==", "pending")
-      );
-      const unsubscribeRequests = onSnapshot(requestsQuery, (snapshot) => {
-        const requestsList = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        console.log("Friend requests list: ", requestsList);
-        setFriendRequests(requestsList);
-      });
-
-      // Clean up listeners on unmount
-      return () => {
-        unsubscribeFriends();
-        unsubscribeRequests();
-      };
-    }
-  }, [user]);
-
-  const handleAcceptRequest = async (requestId: string) => {
-    if (user) {
+    const fetchUserData = async () => {
       try {
-        console.log("Handling accept request for ID: ", requestId);
-        const requestRef = doc(db, "friends", requestId);
-        const requestSnapshot = await getDoc(requestRef);
+        const auth = getAuth();
+        const user = auth.currentUser;
 
-        if (requestSnapshot.exists()) {
-          const requestData = requestSnapshot.data();
+        if (user) {
+          const userRef = doc(db, "users", user.email!);
+          const userDoc = await getDoc(userRef);
 
-          // Update the status to accepted
-          await setDoc(requestRef, { ...requestData, status: "accepted" });
-
-          console.log("Friend request accepted");
-        } else {
-          console.log("No such friend request!");
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setFriends(userData.friends || []);
+            setReceivedRequests(userData.receivedRequests || []);
+            setSentRequests(userData.sentRequests || []);
+          }
         }
-      } catch (e) {
-        console.error("Error accepting friend request: ", e);
+      } catch (err) {
+        setError("Failed to load user data.");
+        console.error(err);
       }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleAcceptRequest = async (requestEmail: string) => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) return;
+
+    const senderRef = doc(db, "users", requestEmail); // Reference to the sender's document
+    const recipientRef = doc(db, "users", user.email!); // Reference to the recipient's document
+
+    try {
+      // Get recipient data
+      const recipientDoc = await getDoc(recipientRef);
+      const recipientData = recipientDoc.data();
+
+      // Get sender data
+      const senderDoc = await getDoc(senderRef);
+      const senderData = senderDoc.data();
+
+      if (recipientData && senderData) {
+        // 1. Update recipient's document
+        // - Add the sender to the recipient's friends list
+        // - Remove the sender from the recipient's receivedRequests list
+        await updateDoc(recipientRef, {
+          friends: arrayUnion({
+            name: senderData.name,
+            email: senderData.email,
+          }),
+          receivedRequests: arrayRemove({
+            name: senderData.name,
+            email: senderData.email,
+          }),
+        });
+
+        // 2. Update sender's document
+        // - Add the recipient to the sender's friends list
+        // - Remove the recipient from the sender's sentRequests list
+        await updateDoc(senderRef, {
+          friends: arrayUnion({
+            name: recipientData.name,
+            email: recipientData.email,
+          }),
+          sentRequests: arrayRemove({
+            name: recipientData.name,
+            email: recipientData.email,
+          }),
+        });
+
+        // 3. Update local state for recipient
+        // - Remove the accepted request from the receivedRequests list in the UI
+        setReceivedRequests((prev) =>
+          prev.filter((request) => request.email !== requestEmail)
+        );
+
+        // 4. Update local state for sender
+        // - Remove the accepted request from the sentRequests list in the UI
+        setSentRequests((prev) =>
+          prev.filter((request) => request.email !== requestEmail)
+        );
+
+        // 5. Add the sender to the recipient’s friends list in local state
+        setFriends((prev) => [
+          ...prev,
+          { name: senderData.name, email: senderData.email },
+        ]);
+      }
+    } catch (err) {
+      console.error("Failed to accept friend request.", err);
+    }
+  };
+
+  const handleSendRequest = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user || !newRequestEmail) return;
+
+    const senderRef = doc(db, "users", user.email!);
+    const recipientRef = doc(db, "users", newRequestEmail);
+
+    try {
+      // Check if recipient exists
+      const recipientDoc = await getDoc(recipientRef);
+      if (!recipientDoc.exists()) {
+        setError("Recipient does not exist.");
+        return;
+      }
+
+      const recipientData = recipientDoc.data();
+      const recipientName = recipientData.name || "Unknown";
+
+      // Update the sender's sent requests and recipient's received requests
+      await updateDoc(senderRef, {
+        sentRequests: arrayUnion({
+          name: recipientName,
+          email: newRequestEmail,
+        }),
+      });
+      await updateDoc(recipientRef, {
+        receivedRequests: arrayUnion({
+          name: user.displayName!,
+          email: user.email!,
+        }),
+      });
+
+      // Update local state
+      setSentRequests((prev) => [
+        ...prev,
+        { name: recipientName, email: newRequestEmail },
+      ]);
+      setNewRequestEmail("");
+    } catch (err) {
+      setError("Failed to send friend request.");
+      console.error(err);
     }
   };
 
   return (
     <div>
       <h1>Friends</h1>
-      <h2>Friend Requests</h2>
+      <h2>Send Friend Request</h2>
+      <input
+        type="email"
+        value={newRequestEmail}
+        onChange={(e) => setNewRequestEmail(e.target.value)}
+        placeholder="Enter friend's email"
+      />
+      <button onClick={handleSendRequest}>Send Request</button>
+
+      <h2>Received Friend Requests</h2>
       <ul>
-        {friendRequests.length === 0 ? (
-          <li>No friend requests</li>
-        ) : (
-          friendRequests.map((request) => (
-            <li key={request.id}>
-              {request.senderEmail}
-              <button onClick={() => handleAcceptRequest(request.id)}>
-                Accept
-              </button>
-            </li>
-          ))
-        )}
+        {receivedRequests.map((request) => (
+          <li key={request.email}>
+            {request.name} ({request.email})
+            <button onClick={() => handleAcceptRequest(request.email)}>
+              Accept
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <h2>Sent Friend Requests</h2>
+      <ul>
+        {sentRequests.map((request) => (
+          <li key={request.email}>
+            {request.name} ({request.email})
+          </li>
+        ))}
       </ul>
 
       <h2>Your Friends</h2>
       <ul>
-        {friends.length === 0 ? (
-          <li>No friends</li>
-        ) : (
-          friends.map((friend) => <li key={friend.id}>{friend.senderEmail}</li>)
-        )}
+        {friends.map((friend) => (
+          <li key={friend.email}>
+            {friend.name} ({friend.email})
+          </li>
+        ))}
       </ul>
+
+      {error && <p>{error}</p>}
     </div>
   );
 };

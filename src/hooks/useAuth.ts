@@ -1,29 +1,29 @@
-import { useEffect, useState } from "react";
-import { ClerkLoaded, useUser } from "@clerk/nextjs";
+// import { useEffect, useState } from "react";
+// import { ClerkLoaded, useUser } from "@clerk/nextjs";
 
-interface User {
-  email: string | null;
-  firstName: string | null;
-}
+// interface User {
+//   email: string | null;
+//   firstName: string | null;
+// }
 
-export const useAuth = () => {
-  const { user } = useUser();
+// export const useAuth = () => {
+//   const { user } = useUser();
 
-  const [authUser, setAuthUser] = useState<User>({
-    email: null,
-    firstName: null,
-  });
+//   const [authUser, setAuthUser] = useState<User>({
+//     email: null,
+//     firstName: null,
+//   });
 
-  useEffect(() => {
-    if (user) {
-      setAuthUser({
-        email: user.emailAddresses[0]?.emailAddress || null,
-        firstName: user.firstName || null,
-      });
-    }
-  }, [user]);
+//   useEffect(() => {
+//     if (user) {
+//       setAuthUser({
+//         email: user.emailAddresses[0]?.emailAddress || null,
+//         firstName: user.firstName || null,
+//       });
+//     }
+//   }, [user]);
 
-  return {
-    user: authUser,
-  };
-};
+//   return {
+//     user: authUser,
+//   };
+// };

@@ -1,60 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { db } from "@/firebase"; // Ensure correct path
-import {
-  doc,
-  collection,
-  deleteDoc,
-  getDoc,
-  updateDoc,
-} from "firebase/firestore";
-import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
+import { auth } from "@/firebaseConfig"; // Adjust path if necessary
+import { acceptFriendRequest } from "@/firestoreUtils"; // Adjust path if necessary
 
-const AcceptFriendRequest = ({ requestId }: { requestId: string }) => {
-  const { user } = useAuth(); // Ensure user info is provided by this hook
+const AcceptFriendRequest = ({ senderEmail }: { senderEmail: string }) => {
+  const [user, setUser] = useState<any>(null);
 
-  const handleAccept = async () => {
-    if (!user?.email) {
-      console.error("User email is not available");
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleAcceptRequest = async () => {
+    if (!user) {
+      alert("You must be logged in to accept friend requests");
       return;
     }
 
+    const receiverEmail = user.email!;
     try {
-      // Get the request document
-      const requestDocRef = doc(db, "friendRequests", requestId);
-      const requestDoc = await getDoc(requestDocRef);
-      const requestData = requestDoc.data();
-
-      if (!requestData) {
-        console.error("Request not found");
-        return;
-      }
-
-      // Add to friends collection
-      const userFriendsRef = collection(db, "users", user.email, "friends");
-      const friendRef = doc(userFriendsRef, requestData.senderEmail);
-      await updateDoc(friendRef, { added: true });
-
-      const friendUserRef = collection(
-        db,
-        "users",
-        requestData.senderEmail,
-        "friends"
-      );
-      const requestUserRef = doc(friendUserRef, user.email);
-      await updateDoc(requestUserRef, { added: true });
-
-      // Remove the request
-      await deleteDoc(requestDocRef);
-
-      console.log("Friend request accepted");
+      await acceptFriendRequest(senderEmail, receiverEmail);
+      alert("Friend request accepted!");
     } catch (error) {
-      console.error("Error accepting friend request: ", error);
+      console.error("Error accepting friend request:", error);
+      alert("Error accepting friend request");
     }
   };
 
-  return <button onClick={handleAccept}>Accept</button>;
+  return <button onClick={handleAcceptRequest}>Accept Friend Request</button>;
 };
 
 export default AcceptFriendRequest;

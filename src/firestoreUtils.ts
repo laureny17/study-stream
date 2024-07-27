@@ -1,79 +1,79 @@
-// firestoreUtils.ts
+import { db } from "./firebaseConfig"; // Adjust the import based on your file structure
 import {
+  collection,
   doc,
   setDoc,
-  updateDoc,
-  deleteDoc,
   getDoc,
-  getDocs,
-  query,
-  collection,
-  where,
+  updateDoc,
+  arrayUnion,
+  arrayRemove,
+  deleteDoc,
 } from "firebase/firestore";
-import { db } from "./firestoreClient";
 
-// Add a friend request
-export const addFriendRequest = async (fromEmail: string, toEmail: string) => {
-  try {
-    const requestRef = doc(collection(db, "friendRequests"));
-    await setDoc(requestRef, {
-      from: fromEmail,
-      to: toEmail,
-      status: "pending",
-      timestamp: new Date(),
-    });
+// Send a friend request
+export async function sendFriendRequest(
+  senderEmail: string,
+  receiverEmail: string
+) {
+  const friendRequestRef = doc(
+    db,
+    "friendRequests",
+    `${senderEmail}_${receiverEmail}`
+  );
+  await setDoc(friendRequestRef, {
+    senderEmail,
+    receiverEmail,
+    status: "pending",
+    timestamp: new Date().toISOString(),
+  });
 
-    // Update sender's and receiver's requests
-    await updateDoc(doc(db, "users", fromEmail), {
-      sentRequests: [
-        ...((await getDoc(doc(db, "users", fromEmail))).data()?.sentRequests ||
-          []),
-        requestRef.id,
-      ],
-    });
-    await updateDoc(doc(db, "users", toEmail), {
-      receivedRequests: [
-        ...((await getDoc(doc(db, "users", toEmail))).data()
-          ?.receivedRequests || []),
-        requestRef.id,
-      ],
-    });
-  } catch (error) {
-    console.error("Error adding friend request", error);
-  }
-};
+  // Update the sender's sent requests
+  const senderDocRef = doc(db, "users", senderEmail);
+  await updateDoc(senderDocRef, {
+    sentRequests: arrayUnion({ email: receiverEmail, name: "" }), // Fetch name if necessary
+  });
+
+  // Update the receiver's received requests
+  const receiverDocRef = doc(db, "users", receiverEmail);
+  await updateDoc(receiverDocRef, {
+    receivedRequests: arrayUnion({ email: senderEmail, name: "" }), // Fetch name if necessary
+  });
+}
 
 // Accept a friend request
-export const acceptFriendRequest = async (requestId: string) => {
-  try {
-    const requestRef = doc(db, "friendRequests", requestId);
-    const requestSnapshot = await getDoc(requestRef);
+export async function acceptFriendRequest(
+  senderEmail: string,
+  receiverEmail: string
+) {
+  const friendRequestRef = doc(
+    db,
+    "friendRequests",
+    `${senderEmail}_${receiverEmail}`
+  );
+  await updateDoc(friendRequestRef, {
+    status: "accepted",
+  });
 
-    if (requestSnapshot.exists()) {
-      const { from, to } = requestSnapshot.data() as any;
+  // Update sender's friends
+  const senderDocRef = doc(db, "users", senderEmail);
+  await updateDoc(senderDocRef, {
+    friends: arrayUnion({ email: receiverEmail, name: "", profilePic: "" }), // Fetch name and profilePic if necessary
+  });
 
-      // Update request status
-      await updateDoc(requestRef, { status: "accepted" });
+  // Update receiver's friends
+  const receiverDocRef = doc(db, "users", receiverEmail);
+  await updateDoc(receiverDocRef, {
+    friends: arrayUnion({ email: senderEmail, name: "", profilePic: "" }), // Fetch name and profilePic if necessary
+  });
 
-      // Update friends in both user documents
-      await updateDoc(doc(db, "users", from), {
-        friends: [
-          ...((await getDoc(doc(db, "users", from))).data()?.friends || []),
-          to,
-        ],
-      });
-      await updateDoc(doc(db, "users", to), {
-        friends: [
-          ...((await getDoc(doc(db, "users", to))).data()?.friends || []),
-          from,
-        ],
-      });
+  // Remove from sent and received requests
+  await updateDoc(senderDocRef, {
+    sentRequests: arrayRemove({ email: receiverEmail, name: "" }),
+  });
+  await updateDoc(receiverDocRef, {
+    receivedRequests: arrayRemove({ email: senderEmail, name: "" }),
+  });
 
-      // Optionally, remove the request from sent and received requests lists
-    } else {
-      console.log("Request not found");
-    }
-  } catch (error) {
-    console.error("Error accepting friend request", error);
-  }
-};
+  // Delete the friend request document
+  await deleteDoc(friendRequestRef);
+}
