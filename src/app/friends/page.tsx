@@ -24,6 +24,7 @@ const FriendsPage = () => {
   const [sentRequests, setSentRequests] = useState<Array<FriendRequest>>([]);
   const [newRequestEmail, setNewRequestEmail] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [showPopup, setShowPopup] = useState<boolean>(false);
 
   // Function to fetch and set user data
   const fetchUserData = async () => {
@@ -192,48 +193,91 @@ const FriendsPage = () => {
   };
 
   return (
-    <div>
-      <h1>Friends</h1>
-      <h2>Send Friend Request</h2>
-      <input
-        type="email"
-        value={newRequestEmail}
-        onChange={(e) => setNewRequestEmail(e.target.value)}
-        placeholder="Enter friend's email"
-      />
-      <button onClick={handleSendRequest}>Send Request</button>
+    <div className="friends-page">
+      <div className="friends-column">
+        <div className="friends-header">
+          <h2>Friends</h2>
+          <button
+            className="add-friend-button"
+            onClick={() => setShowPopup(true)}
+          >
+            <img src="/plus.svg" alt="Add Friend" />
+          </button>
+        </div>
+        <ul className="friends-list">
+          {friends.map((friend) => (
+            <li key={friend.email} className="friend-item">
+              {friend.name} ({friend.email.split("@")[0]})
+            </li>
+          ))}
+        </ul>
+      </div>
 
-      <h2>Received Friend Requests</h2>
-      <ul>
-        {receivedRequests.map((request) => (
-          <li key={request.email}>
-            {request.name} ({request.email})
-            <button onClick={() => handleAcceptRequest(request.email)}>
-              Accept
+      <div className="streams-column">
+        {/* will eventually fill with friend's streams/posts... like a social media feed */}
+      </div>
+
+      {/* pop-up to deal with friend requests */}
+      {showPopup && (
+        <div className="popup-overlay">
+          <div className="popup">
+            <h2>Manage Friend Requests</h2>
+            <div className="popup-columns">
+              <div>
+                <h3>Send Request</h3>
+                <div className="send-request">
+                  <input
+                    className="input-email"
+                    type="email"
+                    value={newRequestEmail}
+                    onChange={(e) => setNewRequestEmail(e.target.value)}
+                    placeholder="Enter friend's email"
+                  />
+                  <button
+                    className="req-send-button"
+                    onClick={handleSendRequest}
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+              <div>
+                <h3>Sent Requests</h3>
+                <ul className="friends-list">
+                  {sentRequests.map((request) => (
+                    <li key={request.email}>
+                      {request.name} ({request.email})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h3>Received Requests</h3>
+                <ul className="friends-list">
+                  {receivedRequests.map((request) => (
+                    <li key={request.email}>
+                      {request.name} ({request.email})<br></br>
+                      <center>
+                        <button
+                          onClick={() => handleAcceptRequest(request.email)}
+                        >
+                          Accept
+                        </button>
+                      </center>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <button
+              className="close-popup-button"
+              onClick={() => setShowPopup(false)}
+            >
+              Close
             </button>
-          </li>
-        ))}
-      </ul>
-
-      <h2>Sent Friend Requests</h2>
-      <ul>
-        {sentRequests.map((request) => (
-          <li key={request.email}>
-            {request.name} ({request.email})
-          </li>
-        ))}
-      </ul>
-
-      <h2>Your Friends</h2>
-      <ul>
-        {friends.map((friend) => (
-          <li key={friend.email}>
-            {friend.name} ({friend.email})
-          </li>
-        ))}
-      </ul>
-
-      {error && <p>{error}</p>}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

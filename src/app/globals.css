@@ -1,6 +1,6 @@
 /* @tailwind base; */
-@tailwind components;
-@tailwind utilities;
+/* @tailwind components; */
+/* @tailwind utilities; */
 
 body {
   margin: 0;
@@ -15,6 +15,118 @@ body {
   text-align: center;
 }
 
+.friends-page {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.friends-column {
+  background-color: #0c081d;
+  padding: 1rem;
+  box-sizing: border-box; /* Ensures padding is included in the width */
+  float: left;
+  height: 100vh; /* Full height */
+  padding-top: 4rem; /* Space for the navbar */
+}
+
+.friends-header {
+  /* margin-left: 1rem; */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.add-friend-button {
+  background-color: #4caf50;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  align-content: center;
+  display: flex;
+  margin-left: 15px;
+  width: 2.5rem; /* Adjust width as needed */
+  height: 2.5rem; /* Adjust height as needed */
+}
+
+.add-friend-button img {
+  width: 1.5rem; /* Adjust width of the SVG */
+  height: 1.5rem; /* Adjust height of the SVG */
+  object-fit: contain; /* Ensures the SVG scales proportionally */
+}
+
+.streams-column {
+  flex-grow: 1;
+  padding: 1rem;
+  overflow-y: auto; /* Allows scrolling if content overflows */
+}
+
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.popup-columns {
+  display: flex;
+  flex-direction: row; /* Ensure columns are side by side */
+  justify-content: space-between; /* Distribute space evenly */
+  min-width: fit-content;
+  margin-left: 10px;
+}
+
+.popup-columns > div {
+  flex: 1; /* Allows columns to grow and shrink equally */
+  width: 100%;
+  min-width: fit-content;
+  overflow: visible; /* Ensures content doesn't overflow outside the box */
+  margin: 10px;
+}
+
+.popup {
+  background-color: #222;
+  padding: 2rem;
+  border-radius: 8px;
+  width: fit-content;
+  height: auto;
+  box-sizing: border-box; /* Ensures padding is included in width */
+}
+
+.send-request {
+  justify-content: center;
+  align-items: center;
+  align-content: center;
+  text-align: center;
+}
+
+.input-email {
+  border-radius: 5px;
+  padding: 0.5rem;
+  border: none;
+}
+
+.req-send-button {
+  padding: 0.5rem;
+}
+
+.close-popup-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
 .navbar {
   position: fixed;
   top: 0;
@@ -22,11 +134,11 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #0c081d;
-  opacity: 80%;
+  background-color: #0c081d; /* Solid background color */
   color: #fff;
   padding: 1rem;
   width: 100%;
+  opacity: 1; /* Ensure full opacity */
 }
 
 .navbar-left {
@@ -130,18 +242,21 @@ header > div {
 /* friend requests stuff */
 
 .friend-requests {
-  margin-top: 20px;
+  width: 100%;
+  box-sizing: border-box; /* Ensures padding is included in width */
 }
 
 .friend-requests ul {
   list-style: none;
   padding: 0;
+  margin: 0;
 }
 
 .friend-requests li {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
+  word-wrap: break-word; /* Wrap long text */
 }
 
 .friend-requests img {
@@ -153,4 +268,21 @@ header > div {
 
 .friend-requests button {
   margin-left: 10px;
+}
+
+.friends-list {
+  text-align: left;
+  list-style: none; /* Removes bullet points */
+  padding: 0; /* Removes default padding */
+  margin: 1rem; /* Removes default margin */
+  flex-direction: column;
+  flex-grow: 1;
+  display: table;
+  min-width: fit-content;
+}
+
+.friend-item {
+  margin-bottom: 0.5rem; /* Adjust spacing between friends as needed */
+  font-size: 1rem; /* Adjust font size as needed */
+  color: #fff; /* Adjust text color if needed */
 }
